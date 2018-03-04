@@ -2,19 +2,18 @@ const fs = require('fs');
 const path = require('path');
 
 class Systematizer {
-  constructor (originalDir, finalDir, removeOriginalDir) {
+  constructor (originalDir, finalDir, makeRemovalOriginalDir) {
     this.originalDir = originalDir || path.join(__dirname, 'test1');
     this.finalDir = finalDir || path.join(__dirname, 'final');
-    this.removeOriginalDir = !!removeOriginalDir || false;
+    this.makeRemovalOriginalDir = !!makeRemovalOriginalDir || false;
     this.numberOfFiles = 0;
     this.numberOfFinishedFiles = 0;
     this.numberOfRemovedFiles = 0;
   }
 
   startProcess () {
-    const listOfFileName = [];
     this._verifyPaths();
-    this._process(this.originalDir, listOfFileName);
+    this._process(this.originalDir);
   }
 
   _verifyPaths () {
@@ -32,19 +31,19 @@ class Systematizer {
     if (!fs.existsSync(this.finalDir)) fs.mkdirSync(this.finalDir);
   }
 
-  _process (level, list) {
+  _process (level) {
     const content = fs.readdirSync(level);
     content.forEach(item => {
       let itemPath = path.join(level, item);
       let state = fs.statSync(itemPath);
       if (state.isDirectory()) {
-        this._process(itemPath, list);
+        this._process(itemPath);
       } else {
         const dirPath = this._getDirPath(item);
         item = this._checkUniqueName(item, dirPath);
         this.numberOfFiles++;
         const newFilePath = path.join(dirPath, item);
-        this._copyFile(itemPath, newFilePath, this._removeOriginalFile);
+        this._copyFile(itemPath, newFilePath, this._doAfterFilesCopied);
       }
     });
   }
@@ -62,17 +61,25 @@ class Systematizer {
   }
 
   _getDirPath (fileName) {
-    let dirName = fileName.charAt(0).toUpperCase();
-    const charCode = dirName.charCodeAt(0);
+    let dirNameFirstSymbol = fileName.charAt(0).toUpperCase();
+    const charCode = dirNameFirstSymbol.charCodeAt(0);
     // Если файл начинается с буквы английского или русского алфавитов или с цифры, создаем папку
     // с названием по первой букве или цифре. Во всех других случаях файл попадает в папку Others
     if (!((charCode > 47 && charCode < 58) ||
       (charCode > 64 && charCode < 91) ||
       (charCode > 1039 && charCode < 1072) ||
       charCode === 1025)) {
-      dirName = 'Others';
+      dirNameFirstSymbol = 'Others';
     }
-    const newDir = path.join(this.finalDir, dirName);
+    let newDir = this._makeNewDir(this.finalDir, dirNameFirstSymbol);
+    let dirNameExt = path.extname(fileName).slice(1);
+    if (!dirNameExt) dirNameExt = 'WithoutExt';
+    newDir = this._makeNewDir(newDir, dirNameExt);
+    return newDir;
+  }
+
+  _makeNewDir (pathDir, dirName) {
+    const newDir = path.join(pathDir, dirName);
     if (!fs.existsSync(newDir)) fs.mkdirSync(newDir);
     return newDir;
   }
@@ -102,30 +109,33 @@ class Systematizer {
     }
   }
 
-  _removeOriginalFile (err, me, source) {
+  _doAfterFilesCopied (err, me, source) {
     if (err) return console.error(err);
-    if (me.removeOriginalDir) {
-      fs.unlink(source, (err) => {
-        if (err) return console.error(err);
-        me.numberOfRemovedFiles++;
-        if (me.numberOfFiles === me.numberOfFinishedFiles && me.numberOfFinishedFiles === me.numberOfRemovedFiles) {
-          while (fs.existsSync(me.originalDir)) {
-            me._removeOriginalDir(me.originalDir);
-          }
-          //exec()
-        } else {
-          me._exitOnError('Произошла ошибка при копировании файлов. Проверьте скопированные файлы и в ручную удалите ненужные директории.');
-        }
-      });
+    if (me.makeRemovalOriginalDir) {
+      me._removeOriginalDir(me, source);
     }
   }
 
-  _removeOriginalDir (dir) {
+  _removeOriginalDir (me, source) {
+    fs.unlink(source, (err) => {
+      if (err) return console.error(err);
+      me.numberOfRemovedFiles++;
+      if (me.numberOfFiles === me.numberOfFinishedFiles && me.numberOfFinishedFiles === me.numberOfRemovedFiles) {
+        while (fs.existsSync(me.originalDir)) {
+          me._removeDirs(me.originalDir);
+        }
+      } else {
+        me._exitOnError('Произошла ошибка при копировании файлов. Проверьте скопированные файлы и в ручную удалите ненужные директории.');
+      }
+    });
+  }
+
+  _removeDirs (dir) {
     const dirs = fs.readdirSync(dir);
     if (!dirs.length) return fs.rmdirSync(dir);
     dirs.forEach(item => {
       const dirPath = path.join(dir, item);
-      this._removeOriginalDir(dirPath);
+      this._removeDirs(dirPath);
     });
   }
 
