@@ -3,7 +3,7 @@ const path = require('path');
 
 class Systematizer {
   constructor (originalDir, finalDir, makeRemovalOriginalDir) {
-    this.originalDir = originalDir || path.join(__dirname, 'test1');
+    this.originalDir = originalDir || path.join(__dirname, 'test');
     this.finalDir = finalDir || path.join(__dirname, 'final');
     this.makeRemovalOriginalDir = !!makeRemovalOriginalDir || false;
     this.numberOfFiles = 0;
@@ -124,8 +124,6 @@ class Systematizer {
         while (fs.existsSync(me.originalDir)) {
           me._removeDirs(me.originalDir);
         }
-      } else {
-        me._exitOnError('Произошла ошибка при копировании файлов. Проверьте скопированные файлы и в ручную удалите ненужные директории.');
       }
     });
   }

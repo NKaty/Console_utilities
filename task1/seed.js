@@ -4,7 +4,7 @@ const path = require('path');
 class Seed {
   constructor (levels, dirName, sourceFile) {
     this.levels = levels || 4;
-    this.dirName = dirName || path.join(__dirname, 'test1');
+    this.dirName = dirName || path.join(__dirname, 'test');
     this.possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzАБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя0123456789';
     this.extnames = ['.png', '.jpg'];
     this.sourceFile = sourceFile || path.join(__dirname, 'seed.jpg');
@@ -80,6 +80,7 @@ class Seed {
     if (!fs.existsSync(this.dirName)) {
       fs.mkdirSync(this.dirName);
     } else {
+      // Чтобы случайно не испортить нужную папку
       const content = fs.readdirSync(this.dirName);
       if (content.length) this._exitOnError('ERROR. Директория для теста должна быть пустой.');
     }
