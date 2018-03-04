@@ -3,7 +3,7 @@ const path = require('path');
 
 class Systematizer {
   constructor (originalDir, finalDir, removeOriginalDir) {
-    this.originalDir = originalDir || path.join(__dirname, 'test');
+    this.originalDir = originalDir || path.join(__dirname, 'test1');
     this.finalDir = finalDir || path.join(__dirname, 'final');
     this.removeOriginalDir = !!removeOriginalDir || false;
     this.numberOfFiles = 0;
