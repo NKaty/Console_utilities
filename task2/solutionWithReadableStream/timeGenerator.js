@@ -1,4 +1,4 @@
-const {Readable} = require('stream');
+const { Readable } = require('stream');
 
 class TimeGenerator extends Readable {
   constructor (interval = 5000, exitPeriod = 33000, options) {

@@ -8,6 +8,7 @@ const server = http.createServer(function (req, res) {
   const printDate = () => {
     const date = new Date().toUTCString();
     console.log(date);
+    return date;
   };
   const checkTimeExit = () => {
     const nowDate = Date.now();
@@ -16,8 +17,8 @@ const server = http.createServer(function (req, res) {
       const leftTime = exitTime - nowDate;
       clearInterval(timer);
       setTimeout(() => {
-        printDate();
-        res.end('exit');
+        const date = printDate();
+        res.end(date);
       }, leftTime);
     }
   };
@@ -28,3 +29,8 @@ const server = http.createServer(function (req, res) {
   }, interval);
 });
 server.listen(3000);
+
+server.on('error', (err) => {
+  console.error(err);
+  process.exit(1);
+});

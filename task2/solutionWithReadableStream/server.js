@@ -8,21 +8,33 @@ domain.run(function () {
   const server = http.createServer(function (req, res) {
     if (req.method !== 'GET') return res.end('It is not the correct method.\n');
     const rd = new TimeGenerator(config.interval, config.exitPeriod);
-    rd.pipe(process.stdout);
+    let answer;
+
     rd.on('error', (err) => {
+      res.end('An error has occurred');
       return console.error(err);
     });
+
     process.stdout.on('error', (err) => {
+      rd.destroy();
+      res.end('An error has occurred');
       return console.error(err);
     });
-    rd.on('end', () => {
-      res.end('exit');
+
+    rd.on('data', (chunk) => {
+      answer = chunk.toString();
     });
+
+    rd.on('end', () => {
+      res.end(answer);
+    });
+
+    rd.pipe(process.stdout);
   });
-  server.listen(3000);
+  server.listen(config.port);
 });
 
 domain.on('error', (err) => {
-  console.error(err.message);
+  console.error(err);
   process.exit(1);
 });
