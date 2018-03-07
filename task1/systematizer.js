@@ -2,17 +2,22 @@ const fs = require('fs');
 const path = require('path');
 
 class Systematizer {
-  constructor (originalDir, finalDir, makeRemovalOriginalDir) {
-    this.originalDir = originalDir || path.join(__dirname, 'test');
-    this.finalDir = finalDir || path.join(__dirname, 'final');
-    this.makeRemovalOriginalDir = !!makeRemovalOriginalDir || false;
+  constructor (originalDir = path.join(__dirname, 'test'), finalDir = path.join(__dirname, 'final'), makeRemovalOriginalDir = false) {
+    this.originalDir = originalDir;
+    this.finalDir = finalDir;
+    this.makeRemovalOriginalDir = !!makeRemovalOriginalDir;
     this.numberOfFiles = 0;
     this.numberOfFinishedFiles = 0;
     this.numberOfRemovedFiles = 0;
   }
 
   startProcess () {
-    this._verifyPaths();
+    try {
+      this._verifyPaths();
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
     this._process(this.originalDir);
   }
 
@@ -23,10 +28,10 @@ class Systematizer {
     this.finalDir = path.normalize(this.finalDir);
     const finalDirName = path.dirname(this.finalDir);
     if (!fs.existsSync(finalDirName)) {
-      this._exitOnError('Директории назначения не существует.');
+      throw Error('Директории назначения не существует.');
     }
     if (!fs.existsSync(this.originalDir)) {
-      this._exitOnError('Источника не существует.');
+      throw Error('Источника не существует.');
     }
     if (!fs.existsSync(this.finalDir)) fs.mkdirSync(this.finalDir);
   }
@@ -56,7 +61,6 @@ class Systematizer {
       const parseItem = path.parse(item);
       item = `${parseItem.name}1${parseItem.ext}`;
     }
-    list.push(item);
     return item;
   }
 
@@ -65,10 +69,7 @@ class Systematizer {
     const charCode = dirNameFirstSymbol.charCodeAt(0);
     // Если файл начинается с буквы английского или русского алфавитов или с цифры, создаем папку
     // с названием по первой букве или цифре. Во всех других случаях файл попадает в папку Others
-    if (!((charCode > 47 && charCode < 58) ||
-      (charCode > 64 && charCode < 91) ||
-      (charCode > 1039 && charCode < 1072) ||
-      charCode === 1025)) {
+    if (!this._isAllowedSymbol(charCode)) {
       dirNameFirstSymbol = 'Others';
     }
     let newDir = this._makeNewDir(this.finalDir, dirNameFirstSymbol);
@@ -76,6 +77,13 @@ class Systematizer {
     if (!dirNameExt) dirNameExt = 'WithoutExt';
     newDir = this._makeNewDir(newDir, dirNameExt);
     return newDir;
+  }
+
+  _isAllowedSymbol (charCode) {
+    return (charCode > 47 && charCode < 58) ||
+      (charCode > 64 && charCode < 91) ||
+      (charCode > 1039 && charCode < 1072) ||
+      charCode === 1025;
   }
 
   _makeNewDir (pathDir, dirName) {
@@ -93,6 +101,7 @@ class Systematizer {
     });
     const wr = fs.createWriteStream(target);
     wr.on('error', function (err) {
+      rd.destroy();
       done(err);
     });
     wr.on('finish', function () {
@@ -112,20 +121,24 @@ class Systematizer {
   _doAfterFilesCopied (err, me, source) {
     if (err) return console.error(err);
     if (me.makeRemovalOriginalDir) {
-      me._removeOriginalDir(me, source);
+      me._removeOriginalDir(source);
     }
   }
 
-  _removeOriginalDir (me, source) {
+  _removeOriginalDir (source) {
     fs.unlink(source, (err) => {
       if (err) return console.error(err);
-      me.numberOfRemovedFiles++;
-      if (me.numberOfFiles === me.numberOfFinishedFiles && me.numberOfFinishedFiles === me.numberOfRemovedFiles) {
-        while (fs.existsSync(me.originalDir)) {
-          me._removeDirs(me.originalDir);
+      this.numberOfRemovedFiles++;
+      if (this._isAllFilesCopiedAndRemoved()) {
+        while (fs.existsSync(this.originalDir)) {
+          this._removeDirs(this.originalDir);
         }
       }
     });
+  }
+
+  _isAllFilesCopiedAndRemoved () {
+    return this.numberOfFiles === this.numberOfFinishedFiles && this.numberOfFinishedFiles === this.numberOfRemovedFiles;
   }
 
   _removeDirs (dir) {
@@ -135,11 +148,6 @@ class Systematizer {
       const dirPath = path.join(dir, item);
       this._removeDirs(dirPath);
     });
-  }
-
-  _exitOnError (message) {
-    console.log(message);
-    process.exit(1);
   }
 }
 
