@@ -7,6 +7,8 @@
 
 Решение к первой задаче, переписанное на промисах - в папке task1/solutionWithAsync
 
+Задание 2
+
 Решение ко второй задаче - в папке task2/simpleSolution.js
 
 Решение ко второй задаче через readable streams - в папке task2/solutionWithReadableStream 
