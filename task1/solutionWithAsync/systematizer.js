@@ -7,6 +7,7 @@ class Systematizer {
     this.originalDir = originalDir;
     this.finalDir = finalDir;
     this.makeRemovalOriginalDir = !!makeRemovalOriginalDir;
+    this.filePromisesArray = [];
   }
 
   startProcess () {
@@ -16,7 +17,7 @@ class Systematizer {
       console.error(e.message);
       process.exit(1);
     }
-    this._process(this.originalDir);
+    this._process();
   }
 
   _verifyPaths () {
@@ -34,24 +35,36 @@ class Systematizer {
     if (!fs.existsSync(this.finalDir)) fs.mkdirSync(this.finalDir);
   }
 
-  _process (level) {
+  async _process () {
+    this._addPromiseIntoArray(this.originalDir);
+    try {
+      await Promise.all(this.filePromisesArray);
+    } catch (e) {
+      console.error(e);
+      process.exit(1);
+    }
+    if (this.makeRemovalOriginalDir) {
+      this._removeOriginalDir();
+    }
+  }
+
+  _addPromiseIntoArray (level) {
     const content = fs.readdirSync(level);
-    const filePromisesArray = [];
-    content.forEach(async item => {
+    content.forEach(item => {
       try {
         let itemPath = path.join(level, item);
         let state = fs.statSync(itemPath);
         if (state.isDirectory()) {
-          this._process(itemPath);
+          this._addPromiseIntoArray(itemPath);
         } else {
           const dirPath = this._getDirPath(item);
           item = this._checkUniqueName(item, dirPath);
           const newFilePath = path.join(dirPath, item);
-          await this._allFilesCopyAndRemovePromise(itemPath, newFilePath, filePromisesArray);
-          this._removeOriginalDir();
+          this.filePromisesArray.push(this._fileCopyAndRemovePromise(itemPath, newFilePath));
         }
       } catch (e) {
         console.error(e);
+        process.exit(1);
       }
     });
   }
@@ -101,9 +114,7 @@ class Systematizer {
     return new Promise(function (resolve, reject) {
       rd.on('error', reject);
       wr.on('error', reject);
-      wr.on('finish', () => {
-        resolve();
-      });
+      wr.on('finish', resolve);
       rd.pipe(wr);
     }).catch((error) => {
       rd.destroy();
@@ -119,15 +130,12 @@ class Systematizer {
   async _fileCopyAndRemovePromise (source, target) {
     try {
       await this._copyFilePromise(source, target);
-      await this._removeFilePromise(source);
-    } catch (e) {
-      console.error(e);
+      if (this.makeRemovalOriginalDir) {
+        await this._removeFilePromise(source);
+      }
+    } catch (error) {
+      throw error;
     }
-  }
-
-  _allFilesCopyAndRemovePromise (source, target, promiseArr) {
-    promiseArr.push(this._fileCopyAndRemovePromise(source, target));
-    return Promise.all(promiseArr);
   }
 
   _removeOriginalDir () {

@@ -13,7 +13,7 @@ class Seed {
   _getRandomName (n) {
     let string = '';
     while (string.length < n) {
-      string += String.fromCharCode(Math.random() * 1106).replace(/[^0-9a-zA-Zа-яА-ЯёЁ]|_/g, '');
+      string += String.fromCharCode(Math.random() * 1106).replace(/[^0-9a-zA-Zа-яА-ЯёЁ]/g, '');
     }
     return string;
   }
@@ -75,10 +75,10 @@ class Seed {
 
   _createFiles (dir, bool) {
     const newFile = path.join(dir, this._getRandomFileName());
-    this._copyFilePromise(this.sourceFile, newFile); //async - call
+    this._copyFilePromise(this.sourceFile, newFile);
     if (bool) {
       const newFileWithDot = path.join(dir, '.eslintrc');
-      this._createFilePromise(newFileWithDot, '{}'); //async - call
+      this._createFilePromise(newFileWithDot, '{}');
     }
   }
 
@@ -93,14 +93,12 @@ class Seed {
     return new Promise(function (resolve, reject) {
       rd.on('error', reject);
       wr.on('error', reject);
-      wr.on('finish', () => {
-        resolve();
-      });
+      wr.on('finish', resolve);
       rd.pipe(wr);
     }).catch((error) => {
       rd.destroy();
       wr.end();
-      throw error;
+      console.error(error);
     });
   }
 }

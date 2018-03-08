@@ -12,7 +12,7 @@ class Seed {
   _getRandomName (n) {
     let string = '';
     while (string.length < n) {
-      string += String.fromCharCode(Math.random() * 1106).replace(/[^0-9a-zA-Zа-яА-ЯёЁ]|_/g, '');
+      string += String.fromCharCode(Math.random() * 1106).replace(/[^0-9a-zA-Zа-яА-ЯёЁ]/g, '');
     }
     return string;
   }
