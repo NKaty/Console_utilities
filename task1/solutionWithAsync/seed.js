@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
 
 class Seed {
   constructor (levels = 4, dirName = path.join(__dirname, 'test'), sourceFile = path.join(__dirname, 'seed.jpg')) {
@@ -33,37 +34,6 @@ class Seed {
     this._creatingProcess(this.dirName, this.levels);
   }
 
-  _creatingProcess (dir, counter) {
-    let count = counter;
-    if (!count) return;
-    while (true) {
-      if (!count) return;
-      const bool = (count === 1);
-      const newDir = path.join(dir, this._getRandomName(8));
-      fs.mkdirSync(newDir);
-      if (!bool) {
-        this._createFiles(dir, bool);
-      } else {
-        this._createFiles(newDir, bool);
-      }
-      count--;
-      this._creatingProcess(newDir, count);
-    }
-  }
-
-  _createFiles (dir, bool) {
-    const newFile = path.join(dir, this._getRandomFileName());
-    this._copyFile(this.sourceFile, newFile, onError);
-    if (bool) {
-      const newFileWithDot = path.join(dir, '.eslintrc');
-      fs.writeFile(newFileWithDot, '{}', onError);
-    }
-
-    function onError (err) {
-      if (err) console.error(err);
-    }
-  }
-
   _verifyPaths () {
     if (!path.isAbsolute(this.dirName)) this.dirName = path.join(__dirname, this.dirName);
     if (!path.isAbsolute(this.sourceFile)) this.sourceFile = path.join(__dirname, this.sourceFile);
@@ -85,28 +55,53 @@ class Seed {
     }
   }
 
-  _copyFile (source, target, cb) {
-    let cbCalled = false;
-    const rd = fs.createReadStream(source);
-    rd.on('error', function (err) {
-      done(err);
-    });
-    const wr = fs.createWriteStream(target);
-    wr.on('error', function (err) {
-      rd.destroy();
-      done(err);
-    });
-    wr.on('finish', function () {
-      done();
-    });
-    rd.pipe(wr);
-
-    function done (err) {
-      if (!cbCalled) {
-        cb(err);
-        cbCalled = true;
+  _creatingProcess (dir, counter) {
+    let count = counter;
+    if (!count) return;
+    while (true) {
+      if (!count) return;
+      const bool = (count === 1);
+      const newDir = path.join(dir, this._getRandomName(8));
+      fs.mkdirSync(newDir);
+      if (!bool) {
+        this._createFiles(dir, bool);
+      } else {
+        this._createFiles(newDir, bool);
       }
+      count--;
+      this._creatingProcess(newDir, count);
     }
+  }
+
+  _createFiles (dir, bool) {
+    const newFile = path.join(dir, this._getRandomFileName());
+    this._copyFilePromise(this.sourceFile, newFile); //async - call
+    if (bool) {
+      const newFileWithDot = path.join(dir, '.eslintrc');
+      this._createFilePromise(newFileWithDot, '{}'); //async - call
+    }
+  }
+
+  _createFilePromise (source, content) {
+    return util.promisify(fs.writeFile)(source, content)
+      .catch(console.error);
+  }
+
+  _copyFilePromise (source, target) {
+    const rd = fs.createReadStream(source);
+    const wr = fs.createWriteStream(target);
+    return new Promise(function (resolve, reject) {
+      rd.on('error', reject);
+      wr.on('error', reject);
+      wr.on('finish', () => {
+        resolve();
+      });
+      rd.pipe(wr);
+    }).catch((error) => {
+      rd.destroy();
+      wr.end();
+      throw error;
+    });
   }
 }
 

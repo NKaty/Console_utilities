@@ -1,6 +1,8 @@
 task1/test
 task1/final
 task1/test1
+task1/solutionWithAsync/test
+task1/solutionWithAsync/final
 
 node_modules
 npm-debug.log

@@ -1,14 +1,12 @@
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
 
 class Systematizer {
   constructor (originalDir = path.join(__dirname, 'test'), finalDir = path.join(__dirname, 'final'), makeRemovalOriginalDir = false) {
     this.originalDir = originalDir;
     this.finalDir = finalDir;
     this.makeRemovalOriginalDir = !!makeRemovalOriginalDir;
-    this.numberOfFiles = 0;
-    this.numberOfFinishedFiles = 0;
-    this.numberOfRemovedFiles = 0;
   }
 
   startProcess () {
@@ -38,22 +36,22 @@ class Systematizer {
 
   _process (level) {
     const content = fs.readdirSync(level);
-    content.forEach(item => {
-      let itemPath = path.join(level, item);
-      let state = fs.statSync(itemPath);
-      let dirPath;
-      if (state.isDirectory()) {
-        this._process(itemPath);
-      } else {
-        try {
-          dirPath = this._getDirPath(item);
+    const filePromisesArray = [];
+    content.forEach(async item => {
+      try {
+        let itemPath = path.join(level, item);
+        let state = fs.statSync(itemPath);
+        if (state.isDirectory()) {
+          this._process(itemPath);
+        } else {
+          const dirPath = this._getDirPath(item);
           item = this._checkUniqueName(item, dirPath);
-        } catch (e) {
-          console.error(e);
+          const newFilePath = path.join(dirPath, item);
+          await this._allFilesCopyAndRemovePromise(itemPath, newFilePath, filePromisesArray);
+          this._removeOriginalDir();
         }
-        this.numberOfFiles++;
-        const newFilePath = path.join(dirPath, item);
-        this._copyFile(itemPath, newFilePath, this._doAfterFilesCopied);
+      } catch (e) {
+        console.error(e);
       }
     });
   }
@@ -97,57 +95,49 @@ class Systematizer {
     return newDir;
   }
 
-  _copyFile (source, target, cb) {
-    const me = this;
-    let cbCalled = false;
+  _copyFilePromise (source, target) {
     const rd = fs.createReadStream(source);
-    rd.on('error', function (err) {
-      done(err);
-    });
     const wr = fs.createWriteStream(target);
-    wr.on('error', function (err) {
+    return new Promise(function (resolve, reject) {
+      rd.on('error', reject);
+      wr.on('error', reject);
+      wr.on('finish', () => {
+        resolve();
+      });
+      rd.pipe(wr);
+    }).catch((error) => {
       rd.destroy();
-      done(err);
+      wr.end();
+      throw error;
     });
-    wr.on('finish', function () {
-      me.numberOfFinishedFiles++;
-      done();
-    });
-    rd.pipe(wr);
+  }
 
-    function done (err) {
-      if (!cbCalled) {
-        cb(err, me, source);
-        cbCalled = true;
-      }
+  _removeFilePromise (source) {
+    return util.promisify(fs.unlink)(source);
+  }
+
+  async _fileCopyAndRemovePromise (source, target) {
+    try {
+      await this._copyFilePromise(source, target);
+      await this._removeFilePromise(source);
+    } catch (e) {
+      console.error(e);
     }
   }
 
-  _doAfterFilesCopied (err, me, source) {
-    if (err) return console.error(err);
-    if (me.makeRemovalOriginalDir) {
-      me._removeOriginalDir(source);
-    }
+  _allFilesCopyAndRemovePromise (source, target, promiseArr) {
+    promiseArr.push(this._fileCopyAndRemovePromise(source, target));
+    return Promise.all(promiseArr);
   }
 
-  _removeOriginalDir (source) {
-    fs.unlink(source, (err) => {
-      if (err) return console.error(err);
-      this.numberOfRemovedFiles++;
-      if (this._isAllFilesCopiedAndRemoved()) {
-        try {
-          while (fs.existsSync(this.originalDir)) {
-            this._removeDirs(this.originalDir);
-          }
-        } catch (e) {
-          console.error(e);
-        }
+  _removeOriginalDir () {
+    try {
+      while (fs.existsSync(this.originalDir)) {
+        this._removeDirs(this.originalDir);
       }
-    });
-  }
-
-  _isAllFilesCopiedAndRemoved () {
-    return this.numberOfFiles === this.numberOfFinishedFiles && this.numberOfFinishedFiles === this.numberOfRemovedFiles;
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   _removeDirs (dir) {

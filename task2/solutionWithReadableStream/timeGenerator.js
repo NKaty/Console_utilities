@@ -27,9 +27,9 @@ class TimeGenerator extends Readable {
 
   _verifyParam () {
     this._interval = parseInt(this._interval);
-    if (isNaN(this._interval)) throw Error('Интервал вывода даты и времени должен быть числом.');
+    if (isNaN(this._interval)) throw new Error('Интервал вывода даты и времени должен быть числом.');
     this._exitPeriod = parseInt(this._exitPeriod);
-    if (isNaN(this._exitPeriod)) throw Error('Время завершения работы сервера должено быть числом.');
+    if (isNaN(this._exitPeriod)) throw new Error('Время завершения работы сервера должено быть числом.');
   }
 
   _getExitTime () {
