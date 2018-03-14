@@ -58,6 +58,7 @@ class TimeGenerator extends Readable {
       }, leftTime);
       return true;
     }
+    return false;
   }
 
   _read (size) {
